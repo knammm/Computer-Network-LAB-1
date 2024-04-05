@@ -1,75 +1,85 @@
 import java.io.*;
 import java.net.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class server {
+    private static String host;
     private static final int PORT = 12345;
-    private static Set<PrintWriter> clientWriters = new HashSet<>();
-    private static Set<String> usernames = new HashSet<>();
 
-    public static void main(String[] args) {
-        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
-            System.out.println("Chat Server is running on port " + PORT);
+    private static final List<Socket> clients = new ArrayList<>();
+    private static final List<String> nicknames = new ArrayList<>();
+
+    private static void sendMessageToAllClients(String message) {
+        for (Socket client : clients) {
+            try {
+                PrintWriter writer = new PrintWriter(client.getOutputStream(), true);
+                writer.println(message); // sending message to clients
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private static void handleClient(Socket client) {
+        String nickname = null;
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
+            nickname = reader.readLine();
+            nicknames.add(nickname);
+            clients.add(client);
+
+            System.out.println("Nickname: " + nickname);
+
             while (true) {
-                new ClientHandler(serverSocket.accept()).start();
+                String message = reader.readLine();
+                if (message != null) {
+                    sendMessageToAllClients(message);
+                }
+            }
+        } catch (SocketException e) {
+            // Client disconnected unexpectedly
+            System.out.println("Client disconnected: " + e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            // When client disconnects, remove from lists
+            if (nickname != null) {
+                int index = nicknames.indexOf(nickname);
+                if (index != -1) {
+                    nicknames.remove(index);
+                    clients.remove(index);
+                    sendMessageToAllClients(nickname + " has left the room.");
+                }
+            }
+        }
+    }
+
+    private static void startServer() {
+        try {
+            ServerSocket serverSocket = new ServerSocket(PORT);
+            System.out.println("Server is running on " + host + ":" + PORT);
+
+            while (true) {
+                Socket client = serverSocket.accept();
+                System.out.println("Connected with " + client.getRemoteSocketAddress());
+                
+                // Multi-thread programming
+                Thread thread = new Thread(() -> handleClient(client));
+                thread.start();
+                System.out.println("[ACTIVE CONNECTIONS] " + (Thread.activeCount() - 1));
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private static class ClientHandler extends Thread {
-        private Socket clientSocket;
-        private PrintWriter clientWriter;
-        private String username;
-
-        public ClientHandler(Socket socket) {
-            this.clientSocket = socket;
+    public static void main(String[] args) {
+        try {
+            host = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
         }
-
-        public void run() {
-            try {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                clientWriter = new PrintWriter(clientSocket.getOutputStream(), true);
-
-                // Get username from client
-                username = reader.readLine();
-                if (username == null || username.isEmpty() || usernames.contains(username)) {
-                    clientWriter.println("Invalid username. Please choose another one.");
-                    return;
-                }
-                usernames.add(username);
-
-                clientWriters.add(clientWriter);
-                System.out.println("System announcement: " + username + " has joined the chat.");
-
-                String message;
-                while ((message = reader.readLine()) != null) {
-                    System.out.println(message);
-                    broadcast(message);
-                }
-            } catch (IOException e) {
-                System.out.println("Error handling client: " + e);
-            } finally {
-                if (username != null) {
-                    System.out.println("System announcement: " + username + " has left the room !");
-                    usernames.remove(username);
-                }
-                if (clientWriter != null) {
-                    clientWriters.remove(clientWriter);
-                }
-                try {
-                    clientSocket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-
-        private void broadcast(String message) {
-            for (PrintWriter writer : clientWriters) {
-                writer.println(message);
-            }
-        }
+        startServer();
     }
 }
