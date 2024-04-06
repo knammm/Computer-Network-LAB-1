@@ -4,7 +4,7 @@ import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 
-public class ChatClient extends JFrame {
+public class myClient extends JFrame {
     private static final int PORT = 12345;
     private Socket socket;
     private BufferedReader reader;
@@ -13,7 +13,7 @@ public class ChatClient extends JFrame {
     private JTextArea chatDisplayArea;
     private JTextField nicknameInputField;
 
-    public ChatClient() {
+    public myClient() {
         setTitle("Chatroom Application");
         setSize(600, 400); // Adjusted height
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -125,7 +125,7 @@ public class ChatClient extends JFrame {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new ChatClient();
+                new myClient();
             }
         });
     }

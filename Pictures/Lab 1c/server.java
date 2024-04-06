@@ -3,7 +3,7 @@ import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class server {
+public class myServer {
     private static String host;
     private static final int PORT = 12345;
 
